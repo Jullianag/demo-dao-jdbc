@@ -10,8 +10,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 
 public class SellerDaoJDBC implements SellerDao{
 
@@ -92,5 +91,52 @@ public class SellerDaoJDBC implements SellerDao{
     @Override
     public List<Seller> findAll() {
         return null;
+    }
+
+    @Override
+    public List<Seller> findByDepartment(Department department) {
+        PreparedStatement st = null;
+        // ResultSet traz em formato de tabela (vem sempre na prosição zero)
+        ResultSet rs = null;
+        try {
+            st = conn.prepareStatement(
+                    "SELECT seller.*,department.Name as DepName "
+                            + "FROM seller INNER JOIN department "
+                            + "ON seller.DepartmentId = department.Id "
+                            + "WHERE DepartmentId = ? "
+                            + "ORDER BY Name"
+            );
+
+            st.setInt(1, department.getId());
+            rs = st.executeQuery();
+
+            List<Seller> list = new ArrayList<>();
+            // Map não repete valor
+            Map<Integer, Department> map = new HashMap<>();
+
+            while (rs.next()) {
+                // guarda dentro do map qualquer departamento que for instanciado
+                // busca se já tem o DepartmentId
+                Department dep = map.get(rs.getInt("DepartmentId"));
+
+                // aqui vamos controlar para não ser criado mais de 1 departamento
+                if (dep == null) {
+                    dep = instantiateDepartment(rs);
+                    map.put(rs.getInt("DepartmentId"), dep);
+                }
+
+                Seller obj = instantiateSeller(rs, dep);
+                list.add(obj);
+            }
+            return list;
+        }
+        catch (SQLException e) {
+            throw new DbException(e.getMessage());
+        }
+        finally {
+            DB.closeStatement(st);
+            DB.closeResultSet(rs);
+            // aqui não precisa fechar a conexão
+        }
     }
 }
